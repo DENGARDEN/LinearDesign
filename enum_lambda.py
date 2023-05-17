@@ -7,34 +7,27 @@ import os
 import pandas as pd
 import pprint
 from text_processing import input_preprocessing
+from ViennaRNA import RNA
 
-DATAPATH = "./data/proteins/nuclease_wildtype.fasta"
+DATAPATH = "./data/proteins/testseq"
 DESIGNPATH = "./designs/proteins/"
-LAMBDA = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 1000]
+LAMBDA = [0]
 
 
 def subprocess_lineardesign(split_protein_sequence: str, cmd: list):
-    """
-    This function takes a protein sequence file and a command list as inputs, runs a pipeline using the
-    command list on the file, and returns the output.
-
-    :param split_protein_sequence: The parameter `split_protein_sequence` is a string that represents
-    the file path to a text file containing a protein sequence that has been split into multiple lines
-    :type split_protein_sequence: str
-    :param cmd: cmd is a list that contains the command and arguments to be executed by the
-    subprocess. It is passed as an argument to the Popen function to create a new process. The command
-    and arguments in cmd should be specified as separate strings in the list
-    :type cmd: list
-    :return: The output of the pipeline is being returned.
-    """
-
     with open(split_protein_sequence, "r") as f:
-        process = sp.Popen(cmd, stdin=f, stdout=sp.PIPE)
+        # Create a subprocess that runs the pipeline
+        data = f.readlines()
+        # leading_sequence = data[1]
+        result = sp.run(cmd, input="".join(data), capture_output=True, text=True)
 
         # Run the pipeline and capture the output
-        output, error = process.communicate()
+        output, error = result.stdout, result.stderr
         if error is not None:
             print(error)
+
+        # Modify 5’-end leader region and choose the best design
+
         return output
 
 
@@ -97,13 +90,14 @@ if __name__ == "__main__":
         print(f"Directory {split_path} already exists.")
         print(f"Cleaning up {split_path}...")
         split_directory_cleanup(split_path)
-    corrected_fasta_path = input_preprocessing(DATAPATH)
-    sp.run(["split", "-l", "2", corrected_fasta_path, f"./{str(split_path)}/"])
+    processed_fasta_path = input_preprocessing(DATAPATH)
+    sp.run(["split", "-l", "2", processed_fasta_path, f"./{str(split_path)}/"])
     items = list(pathlib.Path(split_path).glob("*"))
 
     designs = []
-    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+    with ProcessPoolExecutor(max_workers=1) as executor:  # DEBUG: fixed to 1
         # output redirection from stdout to file
+
         for lambda_ in LAMBDA:
             print(f"Running lambda = {lambda_}...")
             lambda_group = []
@@ -114,17 +108,19 @@ if __name__ == "__main__":
                 future = executor.submit(subprocess_lineardesign, f"{str(item)}", cmd)
                 lambda_group.append(future)
 
-            pattern = "j=\d*\\r"
-            lambda_group = [future.result().decode() for future in lambda_group]
-            lambda_group = map(
-                lambda x: re.sub(pattern, "", x), lambda_group
+            pattern = r"(j=\d*\n)+"  # Modified regex
+            lambda_group = [future.result() for future in lambda_group]
+            lambda_group = list(
+                map(lambda x: re.sub(pattern, "", x), lambda_group)
             )  # Remove iteration mark
-            lambda_group = map(lambda x: x[:-1], lambda_group)  # Remove tailing \n
+            lambda_group = list(
+                map(lambda x: x[:-1], lambda_group)
+            )  # Remove tailing \n
 
             # # Print the output
             # print(output)
             pathlib.Path(DESIGNPATH).mkdir(parents=True, exist_ok=True)
-            df = parse_result(list(lambda_group), lambda_)
+            df = parse_result(lambda_group, lambda_)
             designs.append(df)
 
         pd.concat(designs).to_csv(f"{DESIGNPATH}/{path.name}+design.csv", index=False)
