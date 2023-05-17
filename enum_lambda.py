@@ -27,8 +27,9 @@ def subprocess_lineardesign(
         # Run the pipeline and capture the output
         # Output redirection from stdout to file
         output, error = result.stdout, result.stderr
-        if error is not None:
+        if error != "" or output == "":
             print(error)
+            raise Exception("Error in running lineardesign")
 
         # 2. Enumerate all possible subsequences in the 5’-end leader region
         leading_sequence
