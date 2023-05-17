@@ -14,19 +14,24 @@ DESIGNPATH = "./designs/proteins/"
 LAMBDA = [0]
 
 
-def subprocess_lineardesign(split_protein_sequence: str, cmd: list):
+def subprocess_lineardesign(
+    split_protein_sequence: str, cmd: list, codon_table: pd.DataFrame
+):
     with open(split_protein_sequence, "r") as f:
         # Create a subprocess that runs the pipeline
+        # 1. Designing the CDS region except for the 5’-end leader region
         data = f.readlines()
-        # leading_sequence = data[1]
+        leading_sequence = data[1][:5]
         result = sp.run(cmd, input="".join(data), capture_output=True, text=True)
 
         # Run the pipeline and capture the output
+        # Output redirection from stdout to file
         output, error = result.stdout, result.stderr
         if error is not None:
             print(error)
 
-        # Modify 5’-end leader region and choose the best design
+        # 2. Enumerate all possible subsequences in the 5’-end leader region
+        leading_sequence
 
         return output
 
@@ -96,7 +101,7 @@ if __name__ == "__main__":
 
     designs = []
     with ProcessPoolExecutor(max_workers=1) as executor:  # DEBUG: fixed to 1
-        # output redirection from stdout to file
+        codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
 
         for lambda_ in LAMBDA:
             print(f"Running lambda = {lambda_}...")
@@ -105,7 +110,9 @@ if __name__ == "__main__":
                 # Define the command in the pipeline
                 cmd = ["./lineardesign", "-l", str(lambda_)]
 
-                future = executor.submit(subprocess_lineardesign, f"{str(item)}", cmd)
+                future = executor.submit(
+                    subprocess_lineardesign, f"{str(item)}", cmd, codon_tab
+                )
                 lambda_group.append(future)
 
             pattern = r"(j=\d*\n)+"  # Modified regex

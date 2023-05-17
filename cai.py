@@ -1,7 +1,7 @@
 import pandas as pd
 from math import log2
 
-codon_tab = pd.read_csv("./CAI_table.csv", index_col=0)
+codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
 
 
 def calc_cai(transcript):
