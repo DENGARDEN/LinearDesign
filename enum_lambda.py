@@ -23,8 +23,9 @@ def subprocess_lineardesign(split_protein_sequence: str, cmd: list):
 
         # Run the pipeline and capture the output
         output, error = result.stdout, result.stderr
-        if error is not None:
+        if error != "" or output == "":
             print(error)
+            raise Exception("Error in running lineardesign")
 
         # Modify 5’-end leader region and choose the best design
 
