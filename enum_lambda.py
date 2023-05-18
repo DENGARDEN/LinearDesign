@@ -5,13 +5,15 @@ import pathlib
 import re
 import os
 import pandas as pd
-import pprint
-from text_processing import input_preprocessing
+import numpy as np
+from text_processing import *
 from ViennaRNA import RNA
+from itertools import product
+from RNA_toolkit import *
 
 DATAPATH = "./data/proteins/testseq"
 DESIGNPATH = "./designs/proteins/"
-LAMBDA = [0]
+LAMBDA = [0, ]
 
 
 def subprocess_lineardesign(
@@ -21,20 +23,55 @@ def subprocess_lineardesign(
         # Create a subprocess that runs the pipeline
         # 1. Designing the CDS region except for the 5’-end leader region
         data = f.readlines()
-        leading_sequence = data[1][:5]
-        result = sp.run(cmd, input="".join(data), capture_output=True, text=True)
 
-        # Run the pipeline and capture the output
-        # Output redirection from stdout to file
-        output, error = result.stdout, result.stderr
+        # Split the data into two parts: leader and follower
+        name = data[0]  # Name of the sequence
+        leading_sequence = data[1][:5]  # 5' leader sequence
+        following_sequence = data[1][5:]  # follower sequence
+        completed_process = sp.run(
+            cmd, input=f"{name}\n{following_sequence}", capture_output=True, text=True
+        )
+
+        # Output redirection from stdout to object
+        output, error = completed_process.stdout, completed_process.stderr
         if error != "" or output == "":
             print(error)
             raise Exception("Error in running lineardesign")
 
-        # 2. Enumerate all possible subsequences in the 5’-end leader region
-        leading_sequence
+        pattern = r"(j=\d*\n)+"  # Modified regex
+        output = re.sub(pattern, "", output)[
+            :-1
+        ]  # Remove iteration mark and tailing \n
+        structured_output = make_structured_result_from_lineardesign(output)
 
-        return output
+        # 2. Enumerate all possible subsequences in the 5’-end leader region
+        pooled_codon = []
+        for aa in leading_sequence:
+            pooled_codon.append(codon_table[codon_table["AA"] == aa].index.tolist())
+        leader_candidates = ["".join(tokens) for tokens in product(*pooled_codon)]
+
+        # 3. Concatenate and choose the best design
+        test_sequences = [
+            f"{x}{structured_output['mRNA sequence']}" for x in leader_candidates
+        ]
+
+        structures, mfes = list(zip(*[RNA.fold(x) for x in test_sequences]))
+        best_idx = np.array(
+            [measure_pairing_proportion(x) for x in structures]
+        ).argmin()
+
+        # 4. Return the best design
+        best_result = parse_best_design(
+            (
+                name,
+                test_sequences[best_idx],
+                structures[best_idx],
+                mfes[best_idx],
+                calc_cai(test_sequences[best_idx]),
+            )
+        )
+
+        return best_result
 
 
 def split_directory_cleanup(path: pathlib.Path) -> None:
@@ -50,41 +87,6 @@ def split_directory_cleanup(path: pathlib.Path) -> None:
                 # print(f"Deleted {file_path}")
         except Exception as e:
             print(f"Failed to delete {file_path}. Reason: {e}")
-
-
-def parse_result(results: list, lambda_) -> pd.DataFrame:
-    # Turn this result into a dataframe
-    """
-    >seq2
-    mRNA sequence:  AUGCUGGAUCAGGUCAACAAGCUGAAGUACCCUGAGGUUUCGUUGACCUGA
-    mRNA structure: ........(((((((((((((((..((....))..))))).))))))))))
-    mRNA folding free energy: -20.70 kcal/mol; mRNA CAI: 0.768
-    """
-
-    # Split the result into individual records
-    parsed = []
-    for result in results:
-        records = result.split(">")[1:][0]
-
-        # Split each record into its components
-        records = records.split("\n")
-
-        # Data cleaning
-        parsed.append(
-            {
-                "Name": records[0],
-                "mRNA sequence": records[1].split(":")[1].strip(),
-                "mRNA structure": records[2].split(":")[1].strip(),
-                "MFE (kcal/mol)": float(
-                    records[3].split(";")[0].split(":")[1].split()[0].strip()
-                ),
-                "CAI": float(records[3].split(";")[1].split(":")[1].strip()),
-                "lambda": lambda_,
-            }
-        )
-
-    pprint.pprint(parsed)
-    return pd.DataFrame.from_dict(parsed)
 
 
 if __name__ == "__main__":
@@ -116,19 +118,11 @@ if __name__ == "__main__":
                 )
                 lambda_group.append(future)
 
-            pattern = r"(j=\d*\n)+"  # Modified regex
             lambda_group = [future.result() for future in lambda_group]
-            lambda_group = list(
-                map(lambda x: re.sub(pattern, "", x), lambda_group)
-            )  # Remove iteration mark
-            lambda_group = list(
-                map(lambda x: x[:-1], lambda_group)
-            )  # Remove tailing \n
-
             # # Print the output
             # print(output)
             pathlib.Path(DESIGNPATH).mkdir(parents=True, exist_ok=True)
-            df = parse_result(lambda_group, lambda_)
+            df = tagging_lambda_and_create_dataframe(lambda_group, lambda_)
             designs.append(df)
 
         pd.concat(designs).to_csv(f"{DESIGNPATH}/{path.name}+design.csv", index=False)

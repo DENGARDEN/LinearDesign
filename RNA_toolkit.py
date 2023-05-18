@@ -1,10 +1,9 @@
 import pandas as pd
 from math import log2
 
-codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
-
 
 def calc_cai(transcript):
+    codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
     try:
         cai = 0.0
         transcript = transcript.upper()
@@ -18,3 +17,10 @@ def calc_cai(transcript):
         print("ERROR: Invalid codon in transcript")
         raise
     return answer
+
+
+def measure_pairing_proportion(ss: str) -> float:
+    LEADING_5_PRIME_LEN = 15
+    proportion = ss[:LEADING_5_PRIME_LEN].count("(") / LEADING_5_PRIME_LEN
+
+    return proportion
