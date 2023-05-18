@@ -55,17 +55,33 @@ def subprocess_lineardesign(
             f"{x}{structured_output['mRNA sequence']}" for x in leader_candidates
         ]
 
-        structures, mfes = list(zip(*[RNA.fold(x) for x in test_sequences]))
+        rna_structures, mfes = list(zip(*[RNA.fold(x) for x in test_sequences]))
+
+        # 4. Filter the design with only < 33-bp pairing in a double-stranded region: Design constraint 2
+        filtered_idx = get_idx_inntate_immunity_safe_designs(rna_structures)
+
+        if filtered_idx == []:
+            long_ds_region_occurences = np.array(
+                [count_long_ds_regions(structure) for structure in rna_structures]
+            )
+            filtered_idx = np.argsort(long_ds_region_occurences)[
+                :10
+            ].tolist()  # If no safe designs, select 10 best designs
+
+        rna_structures, mfes = [rna_structures[i] for i in filtered_idx], [
+            mfes[i] for i in filtered_idx
+        ]
+
         best_idx = np.array(
-            [measure_pairing_proportion(x) for x in structures]
+            [measure_pairing_proportion(x) for x in rna_structures]
         ).argmin()
 
-        # 4. Return the best design
+        # 5. Return the best design
         best_result = parse_best_design(
             (
                 name,
                 test_sequences[best_idx],
-                structures[best_idx],
+                rna_structures[best_idx],
                 mfes[best_idx],
                 calc_cai(test_sequences[best_idx]),
             )
