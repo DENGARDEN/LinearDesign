@@ -119,7 +119,7 @@ if __name__ == "__main__":
     items = list(pathlib.Path(split_path).glob("*"))
 
     designs = []
-    with ProcessPoolExecutor(max_workers=1) as executor:  # DEBUG: 1
+    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:  # DEBUG: 1
         codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
 
         for lambda_ in LAMBDA:
