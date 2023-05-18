@@ -171,3 +171,4 @@ cython_debug/
 *.html
 *.png
 bin/*
+bin/LinearDesign_2D
