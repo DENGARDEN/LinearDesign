@@ -40,19 +40,24 @@ def make_structured_result_from_lineardesign(result: str) -> dict:
     following keys: "Name", "mRNA sequence", "mRNA structure", "MFE (kcal/mol)", and "CAI". The values
     for these keys are extracted from the input string using string manipulation techniques.
     """
-    records = result.split(">")[1]
+    try:
+        records = result.split(">")[1]
 
-    # Split each record into its components
-    records = records.split("\n")
-    return {
-        "Name": records[0],
-        "mRNA sequence": records[1].split(":")[1].strip(),
-        "mRNA structure": records[2].split(":")[1].strip(),
-        "MFE (kcal/mol)": float(
-            records[3].split(";")[0].split(":")[1].split()[0].strip()
-        ),
-        "CAI": float(records[3].split(";")[1].split(":")[1].strip()),
-    }
+        # Split each record into its components
+        records = records.split("\n")
+        return {
+            "Name": records[0],
+            "mRNA sequence": records[1].split(":")[1].strip(),
+            "mRNA structure": records[2].split(":")[1].strip(),
+            "MFE (kcal/mol)": float(
+                records[3].split(";")[0].split(":")[1].split()[0].strip()
+            ),
+            "CAI": float(records[3].split(";")[1].split(":")[1].strip()),
+        }
+    except Exception as e:
+        print(e)
+        print(result)
+        raise Exception("Error in parsing the result from lineardesign")
 
 
 def parse_best_design(records: Tuple[str, str, str, float, float]) -> dict:

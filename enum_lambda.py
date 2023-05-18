@@ -11,7 +11,7 @@ from ViennaRNA import RNA
 from itertools import product
 from RNA_toolkit import *
 
-DATAPATH = "./data/proteins/CRISPR_protein.fasta"
+DATAPATH = "./data/proteins/nuclease.fasta"
 DESIGNPATH = "./designs/proteins/"
 LAMBDA = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 1000]
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     items = list(pathlib.Path(split_path).glob("*"))
 
     designs = []
-    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+    with ProcessPoolExecutor(max_workers=1) as executor:  # DEBUG: 1
         codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
 
         for lambda_ in LAMBDA:
