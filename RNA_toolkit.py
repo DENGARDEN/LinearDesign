@@ -1,5 +1,30 @@
 import pandas as pd
 from math import log2
+import re
+
+
+def count_long_ds_regions(structure: str) -> int:
+    """
+    Count the number of long double-stranded regions in a structure
+    """
+    matches = re.findall(r"\({33}", structure)
+
+    return len(matches)
+
+
+def is_innate_immunity_safe(structure: str) -> bool:
+    return "(" * 33 in structure
+
+
+def get_idx_inntate_immunity_safe_designs(structures) -> list:
+    """
+    Return the index of the designs that are safe from innate immunity
+    """
+    idx_list = []
+    for i, structure in enumerate(structures):
+        if not is_innate_immunity_safe(structure):
+            idx_list.append(i)
+    return idx_list
 
 
 def calc_cai(transcript):
