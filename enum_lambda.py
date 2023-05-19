@@ -7,7 +7,11 @@ import os
 import pandas as pd
 import numpy as np
 from text_processing import *
-from ViennaRNA import RNA
+
+try:
+    import RNA
+except ImportError:
+    from ViennaRNA import RNA
 from itertools import product
 from RNA_toolkit import *
 
