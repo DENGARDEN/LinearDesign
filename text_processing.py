@@ -1,6 +1,16 @@
 import pandas as pd
+import numpy as np
 import pprint
 from typing import Tuple, List, Dict, Union
+from enum_lambda import (
+    IDX_INNATE_IMMUNITY_SAFE,
+    IDX_SECONDARY_STRUCTURE,
+    IDX_MFE,
+    IDX_PAIRING_PROPORTION,
+    IDX_LONG_DS_REGIONS,
+    IDX_RNA_SEQUENCE,
+    IDX_CAI,
+)
 
 # Description: This file contains the functions for text processing
 
@@ -60,14 +70,14 @@ def make_structured_result_from_lineardesign(result: str) -> dict:
         raise Exception("Error in parsing the result from lineardesign")
 
 
-def parse_best_design(records: Tuple[str, str, str, float, float]) -> dict:
+def parse_best_design(name: str, records: np.ndarray) -> dict:
     try:
         rval = {
-            "Name": records[0].replace(">", "").strip(),
-            "mRNA sequence": records[1].strip(),
-            "mRNA structure": records[2].strip(),
-            "MFE (kcal/mol)": records[3],
-            "CAI": records[3],
+            "Name": name.replace(">", "").strip(),
+            "mRNA sequence": records[IDX_RNA_SEQUENCE].strip(),
+            "mRNA structure": records[IDX_SECONDARY_STRUCTURE].strip(),
+            "MFE (kcal/mol)": records[IDX_MFE],
+            "CAI": records[IDX_CAI],
         }
     except Exception as e:
         print(e)

@@ -19,8 +19,33 @@ DATAPATH = "./data/proteins/testseq"
 DESIGNPATH = "./designs/proteins/"
 LAMBDA = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 1000]
 
+IDX_INNATE_IMMUNITY_SAFE = 0
+IDX_SECONDARY_STRUCTURE = 1
+IDX_MFE = 2
+IDX_PAIRING_PROPORTION = 3
+IDX_LONG_DS_REGIONS = 4
+IDX_RNA_SEQUENCE = 5
+IDX_CAI = 6
 
-def subprocess_lineardesign(
+
+def rna_measurement_wrapper(sequence: str) -> pd.Series:
+    ss, mfe = RNA.fold(sequence)
+    robj = pd.Series(
+        [
+            is_innate_immunity_safe(ss),
+            ss,
+            mfe,
+            measure_pairing_proportion(ss),
+            count_long_ds_regions(ss),
+            sequence,
+            calc_cai(sequence),
+        ]
+    )
+
+    return robj
+
+
+def pipeline_lineardesign(
     split_protein_sequence: str, cmd: list, codon_table: pd.DataFrame
 ):
     with open(split_protein_sequence, "r") as f:
@@ -59,37 +84,40 @@ def subprocess_lineardesign(
             f"{x}{structured_output['mRNA sequence']}" for x in leader_candidates
         ]
 
-        rna_structures, mfes = list(zip(*[RNA.fold(x) for x in test_sequences]))
+        # Parallel ss computation
+        best_result = {}
+        with ProcessPoolExecutor(
+            max_workers=cpu_count()  # DEBUG: fixed to 1
+        ) as executor:  # BUG: may consume all the memory,
+            # 4. Filter the design with only < 33-bp pairing in a double-stranded region: Design constraint 2
+            futures = [
+                executor.submit(rna_measurement_wrapper, x) for x in test_sequences
+            ]
 
-        # 4. Filter the design with only < 33-bp pairing in a double-stranded region: Design constraint 2
-        filtered_idx = get_idx_inntate_immunity_safe_designs(rna_structures)
-
-        if filtered_idx == []:
-            long_ds_region_occurences = np.array(
-                [count_long_ds_regions(structure) for structure in rna_structures]
+            processing_results = [f.result() for f in futures]
+            df = pd.concat(processing_results, axis=1).T.astype(
+                {
+                    IDX_INNATE_IMMUNITY_SAFE: bool,
+                    IDX_SECONDARY_STRUCTURE: str,
+                    IDX_MFE: float,
+                    IDX_PAIRING_PROPORTION: float,
+                    IDX_LONG_DS_REGIONS: int,
+                    IDX_RNA_SEQUENCE: str,
+                    IDX_CAI: float,
+                }
             )
-            filtered_idx = np.argsort(long_ds_region_occurences)[
-                :10
-            ].tolist()  # If no safe designs, select 10 best designs
+            # BUG
+            df.to_csv("./test.csv")  # DEBUG
+            safe_designs = df[lambda x: x[IDX_INNATE_IMMUNITY_SAFE] == True]
+            if safe_designs.empty:
+                safe_designs = df[
+                    df[IDX_LONG_DS_REGIONS].idxmin()
+                ]  # Choose the alternative design
 
-        rna_structures, mfes = [rna_structures[i] for i in filtered_idx], [
-            mfes[i] for i in filtered_idx
-        ]
-
-        best_idx = np.array(
-            [measure_pairing_proportion(x) for x in rna_structures]
-        ).argmin()
-
-        # 5. Return the best design
-        best_result = parse_best_design(
-            (
-                name,
-                test_sequences[best_idx],
-                rna_structures[best_idx],
-                mfes[best_idx],
-                calc_cai(test_sequences[best_idx]),
-            )
-        )
+            best_idx = safe_designs[IDX_PAIRING_PROPORTION].idxmin()
+            best_design = safe_designs.loc[best_idx].to_numpy()
+            # 5. Return the best design
+            best_result = parse_best_design(name, best_design)
 
         return best_result
 
@@ -123,28 +151,20 @@ if __name__ == "__main__":
     items = list(pathlib.Path(split_path).glob("*"))
 
     designs = []
-    with ProcessPoolExecutor(
-        max_workers=cpu_count()
-    ) as executor:  # BUG: may consume all the memory
-        codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
 
-        for lambda_ in LAMBDA:
-            print(f"Running lambda = {lambda_}...")
-            lambda_group = []
-            for item in items:
-                # Define the command in the pipeline
-                cmd = ["./lineardesign", "-l", str(lambda_)]
+    codon_tab = pd.read_csv("./CAI_table_human.csv", index_col=0)
 
-                future = executor.submit(
-                    subprocess_lineardesign, f"{str(item)}", cmd, codon_tab
-                )
-                lambda_group.append(future)
+    for lambda_ in LAMBDA:
+        print(f"Running lambda = {lambda_}...")
+        lambda_group = []
+        for item in items:
+            # Define the command in the pipeline
+            cmd = ["./lineardesign", "-l", str(lambda_)]
+            lambda_group.append(pipeline_lineardesign(f"{str(item)}", cmd, codon_tab))
 
-            lambda_group = [future.result() for future in lambda_group]
-            # # Print the output
-            # print(output)
-            pathlib.Path(DESIGNPATH).mkdir(parents=True, exist_ok=True)
-            df = tagging_lambda_and_create_dataframe(lambda_group, lambda_)
-            designs.append(df)
+        # Create a directory to store the designs
+        pathlib.Path(DESIGNPATH).mkdir(parents=True, exist_ok=True)
+        df = tagging_lambda_and_create_dataframe(lambda_group, lambda_)
+        designs.append(df)
 
-        pd.concat(designs).to_csv(f"{DESIGNPATH}/{path.name}+design.csv", index=False)
+    pd.concat(designs).to_csv(f"{DESIGNPATH}/{path.name}+design.csv", index=False)
