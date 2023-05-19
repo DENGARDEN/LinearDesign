@@ -13,7 +13,7 @@ def count_long_ds_regions(structure: str) -> int:
 
 
 def is_innate_immunity_safe(structure: str) -> bool:
-    return "(" * 33 in structure
+    return "(" * 33 not in structure
 
 
 def get_idx_inntate_immunity_safe_designs(structures) -> list:
