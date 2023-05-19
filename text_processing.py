@@ -63,7 +63,7 @@ def make_structured_result_from_lineardesign(result: str) -> dict:
 def parse_best_design(records: Tuple[str, str, str, float, float]) -> dict:
     try:
         rval = {
-            "Name": records[0].strip(),
+            "Name": records[0].replace(">", "").strip(),
             "mRNA sequence": records[1].strip(),
             "mRNA structure": records[2].strip(),
             "MFE (kcal/mol)": records[3],

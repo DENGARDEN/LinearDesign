@@ -11,7 +11,7 @@ from ViennaRNA import RNA
 from itertools import product
 from RNA_toolkit import *
 
-DATAPATH = "./data/proteins/nuclease.fasta"
+DATAPATH = "./data/proteins/testseq"
 DESIGNPATH = "./designs/proteins/"
 LAMBDA = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 1000]
 
