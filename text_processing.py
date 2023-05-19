@@ -1,6 +1,6 @@
 import pandas as pd
 import pprint
-from typing import Tuple
+from typing import Tuple, List, Dict, Union
 
 # Description: This file contains the functions for text processing
 
@@ -40,32 +40,46 @@ def make_structured_result_from_lineardesign(result: str) -> dict:
     following keys: "Name", "mRNA sequence", "mRNA structure", "MFE (kcal/mol)", and "CAI". The values
     for these keys are extracted from the input string using string manipulation techniques.
     """
-    records = result.split(">")[1]
+    try:
+        records = result.split(">")[1]
 
-    # Split each record into its components
-    records = records.split("\n")
-    return {
-        "Name": records[0],
-        "mRNA sequence": records[1].split(":")[1].strip(),
-        "mRNA structure": records[2].split(":")[1].strip(),
-        "MFE (kcal/mol)": float(
-            records[3].split(";")[0].split(":")[1].split()[0].strip()
-        ),
-        "CAI": float(records[3].split(";")[1].split(":")[1].strip()),
-    }
+        # Split each record into its components
+        records = records.split("\n")
+        return {
+            "Name": records[0],
+            "mRNA sequence": records[1].split(":")[1].strip(),
+            "mRNA structure": records[2].split(":")[1].strip(),
+            "MFE (kcal/mol)": float(
+                records[3].split(";")[0].split(":")[1].split()[0].strip()
+            ),
+            "CAI": float(records[3].split(";")[1].split(":")[1].strip()),
+        }
+    except Exception as e:
+        print(e)
+        print(result)
+        raise Exception("Error in parsing the result from lineardesign")
 
 
 def parse_best_design(records: Tuple[str, str, str, float, float]) -> dict:
-    return {
-        "Name": records[0].strip(),
-        "mRNA sequence": records[1].strip(),
-        "mRNA structure": records[2].strip(),
-        "MFE (kcal/mol)": records[3],
-        "CAI": records[3],
-    }
+    try:
+        rval = {
+            "Name": records[0].strip(),
+            "mRNA sequence": records[1].strip(),
+            "mRNA structure": records[2].strip(),
+            "MFE (kcal/mol)": records[3],
+            "CAI": records[3],
+        }
+    except Exception as e:
+        print(e)
+        print(records)
+        raise Exception("Error in parsing the best design")
+
+    return rval
 
 
-def tagging_lambda_and_create_dataframe(results: list, lambda_: int) -> pd.DataFrame:
+def tagging_lambda_and_create_dataframe(
+    results: List[Dict], lambda_: int
+) -> pd.DataFrame:
     # Tag lambda and turn the result into a dataframe
     """
     {
@@ -78,10 +92,10 @@ def tagging_lambda_and_create_dataframe(results: list, lambda_: int) -> pd.DataF
     """
 
     # Split the result into individual records
-    tagged = []
+    tagged: List[Dict[str, Union[str, float]]] = []
     for result in results:
         result["lambda"] = lambda_
         tagged.append(result)
 
     pprint.pprint(tagged)
-    return pd.DataFrame.from_dict(tagged)
+    return pd.DataFrame(tagged)
