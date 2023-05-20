@@ -15,7 +15,7 @@ except ImportError:
 from itertools import product
 from RNA_toolkit import *
 
-DATAPATH = "./data/proteins/testseq"
+DATAPATH = "./data/proteins/nuclease.fasta"
 DESIGNPATH = "./designs/proteins/"
 LAMBDA = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 1000]
 
@@ -162,9 +162,9 @@ if __name__ == "__main__":
             cmd = ["./lineardesign", "-l", str(lambda_)]
             lambda_group.append(pipeline_lineardesign(f"{str(item)}", cmd, codon_tab))
 
-        # Create a directory to store the designs
-        pathlib.Path(DESIGNPATH).mkdir(parents=True, exist_ok=True)
         df = tagging_lambda_and_create_dataframe(lambda_group, lambda_)
         designs.append(df)
 
+    # Create a directory to store the designs
+    pathlib.Path(DESIGNPATH).mkdir(parents=True, exist_ok=True)
     pd.concat(designs).to_csv(f"{DESIGNPATH}/{path.name}+design.csv", index=False)
