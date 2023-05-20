@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import numpy as np
 from text_processing import *
+import gc
 
 try:
     import RNA
@@ -107,7 +108,7 @@ def pipeline_lineardesign(
                 }
             )
             # BUG
-            df.to_csv("./test.csv")  # DEBUG
+            # df.to_csv("./test.csv")  # DEBUG
             safe_designs = df[lambda x: x[IDX_INNATE_IMMUNITY_SAFE] == True]
             if safe_designs.empty:
                 safe_designs = df[
@@ -119,7 +120,21 @@ def pipeline_lineardesign(
             # 5. Return the best design
             best_result = parse_best_design(name, best_design)
 
-        return best_result
+            del df, safe_designs, best_design, best_idx, processing_results, futures
+            gc.collect()
+
+        del (
+            test_sequences,
+            leader_candidates,
+            pooled_codon,
+            following_sequence,
+            leading_sequence,
+            name,
+            data,
+        )
+        gc.collect()
+
+    return best_result
 
 
 def split_directory_cleanup(path: pathlib.Path) -> None:
