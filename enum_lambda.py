@@ -16,9 +16,9 @@ except ImportError:
 from itertools import product
 from RNA_toolkit import *
 
-DATAPATH = "./data/proteins/nuclease.fasta"
+DATAPATH = "./data/proteins/alt_design_testdata.fasta"
 DESIGNPATH = "./designs/proteins/"
-LAMBDA = [0, 0.1, 0.2, 0.5, 1, 2, 5, 10, 1000]
+LAMBDA = [5]
 
 IDX_INNATE_IMMUNITY_SAFE = 0
 IDX_SECONDARY_STRUCTURE = 1
@@ -107,20 +107,23 @@ def pipeline_lineardesign(
                     IDX_CAI: float,
                 }
             )
-            # BUG
-            # df.to_csv("./test.csv")  # DEBUG
+
             safe_designs = df[lambda x: x[IDX_INNATE_IMMUNITY_SAFE] == True]
             if safe_designs.empty:
-                safe_designs = df[
-                    df[IDX_LONG_DS_REGIONS].idxmin()
+                safe_designs = df.loc[
+                    df.loc[:, IDX_LONG_DS_REGIONS].idxmin(), :
                 ]  # Choose the alternative design
+                best_design = safe_designs.to_numpy()
+            else:
+                best_idx = safe_designs[IDX_PAIRING_PROPORTION].idxmin()
+                best_design = safe_designs.loc[best_idx].to_numpy()
 
-            best_idx = safe_designs[IDX_PAIRING_PROPORTION].idxmin()
-            best_design = safe_designs.loc[best_idx].to_numpy()
+                del best_idx
+
             # 5. Return the best design
             best_result = parse_best_design(name, best_design)
 
-            del df, safe_designs, best_design, best_idx, processing_results, futures
+            del df, safe_designs, best_design, processing_results, futures
             gc.collect()
 
         del (
