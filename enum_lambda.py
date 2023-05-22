@@ -16,9 +16,9 @@ except ImportError:
 from itertools import product
 from RNA_toolkit import *
 
-DATAPATH = "./data/proteins/alt_design_testdata.fasta"
+DATAPATH = "./data/proteins/testseq"
 DESIGNPATH = "./designs/proteins/"
-LAMBDA = [5]
+LAMBDA = [0]
 
 IDX_INNATE_IMMUNITY_SAFE = 0
 IDX_SECONDARY_STRUCTURE = 1
@@ -68,6 +68,7 @@ def pipeline_lineardesign(
             print(error)
             raise Exception("Error in running lineardesign")
 
+        print(output)
         pattern = r"(j=\d*\n)+"  # Modified regex
         output = re.sub(pattern, "", output)[
             :-1
